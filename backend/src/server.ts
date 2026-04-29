@@ -15,14 +15,16 @@ import { Incidence } from "./models/Incidence";
 import { Movement } from "./models/Movement";
 import { Report } from "./models/Report";
 import { Notification } from "./models/Notification";
-
+import userRoutes from "./routes/user.routes";
+import authRoutes from "./routes/auth.routes"; // 👈 FALTA ESTO
 dotenv.config();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/api", userRoutes);
+app.use("/api", authRoutes); // 👈 ESTO ES LO QUE TE FALTA
 /* ======================
    SEQUELIZE (AQUÍ MISMO)
 ====================== */
