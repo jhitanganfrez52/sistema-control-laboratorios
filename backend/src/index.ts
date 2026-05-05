@@ -35,7 +35,7 @@ app.use(express.json());
 ====================== */
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
-
+app.use("/uploads", express.static("uploads"));
 /* ======================
    SEQUELIZE
 ====================== */

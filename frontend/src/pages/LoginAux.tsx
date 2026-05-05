@@ -16,9 +16,7 @@ export default function LoginAux() {
         codigo_acceso: codigo,
         password: password,
       });
-
-      // 🔥 VALIDAR ROL
-      if (res.data.rol === "AUXILIAR") {
+      if (res.data.data.rol === "AUXILIAR") {
         navigate("/aux");
       } else {
         alert("No eres auxiliar");

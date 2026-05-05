@@ -28,7 +28,19 @@ export const loginAdmin = async (req: Request, res: Response) => {
   }
 };
 export const loginAux = async (req: Request, res: Response) => {
+  if (!req.body) {
+    return res.status(400).json({
+      message: "No se envió body",
+    });
+  }
+
   const { codigo_acceso } = req.body;
+
+  if (!codigo_acceso) {
+    return res.status(400).json({
+      message: "Falta codigo_acceso",
+    });
+  }
 
   const user = await User.findOne({
     where: {

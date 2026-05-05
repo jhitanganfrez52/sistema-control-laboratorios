@@ -1,6 +1,6 @@
 import logo from "../assets/icepal_logo_transparent.png";
 import { useState } from "react";
-import LoginForm from "../pages/LoginForm";
+import LoginForm from "../pages/LoginAdmin";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);

@@ -71,3 +71,31 @@ export const crearAdmin = async (req: Request, res: Response) => {
     });
   }
 };
+export const obtenerAdmin = async (req: Request, res: Response) => {
+  try {
+    const admin = await User.findOne({
+      where: { rol: "ADMINISTRADOR" },
+      attributes: [
+        "id_usuario",
+        "nombre_completo",
+        "codigo_acceso",
+        "estado",
+        "fecha_creacion",
+        "rol",
+      ],
+    });
+
+    if (!admin) {
+      return res.status(404).json({
+        message: "No hay admin",
+      });
+    }
+
+    res.json(admin);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Error al obtener admin",
+    });
+  }
+};

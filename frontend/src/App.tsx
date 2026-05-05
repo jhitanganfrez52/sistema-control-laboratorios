@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Home from "./pages/Home";
-import Admin from "./pages/Admin";
-import Aux from "./pages/Auxi";
+import Admin from "./pages/PanelAdmin";
+import Aux from "./pages/PanelAuxi";
 
-import LoginAdmin from "./pages/LoginForm";
+import LoginAdmin from "./pages/LoginAdmin";
 import LoginAux from "./pages/LoginAux";
 
 function App() {

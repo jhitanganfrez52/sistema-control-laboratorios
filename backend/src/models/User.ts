@@ -34,4 +34,7 @@ export class User extends Model {
 
   @Column(DataType.DATE)
   fecha_creacion!: Date;
+
+  @Column(DataType.STRING)
+  foto!: string;
 }
