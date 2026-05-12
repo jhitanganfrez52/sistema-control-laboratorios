@@ -9,7 +9,6 @@ export const loginAdmin = async (req: Request, res: Response) => {
     const user = await User.findOne({
       where: { codigo_acceso, password, rol: "ADMINISTRADOR" },
     });
-    console.log(user);
     if (!user) {
       return res.status(401).json({
         message: "Credenciales incorrectas",

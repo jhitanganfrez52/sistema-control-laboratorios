@@ -30,15 +30,28 @@ import "toastr/build/toastr.min.css";
 export default function Admin() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [view, setView] = useState<"dashboard" | "auxiliares">("dashboard");
+  const [view, setView] = useState<
+    "dashboard" | "auxiliares" | "equipos" | "incidencias"
+  >("dashboard");
   const toggleMenu = (menu: string) => {
     setOpenMenu(openMenu === menu ? null : menu);
   };
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [adminData, setAdminData] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+  const [incidencias, setIncidencias] = useState<any[]>([]);
+  const [laboratorios, setLaboratorios] = useState<any[]>([]);
+  const [equipos, setEquipos] = useState<any[]>([]);
+  const [equipmentData, setEquipmentData] = useState({
+    codigo_equipo: "",
+    id_laboratorio: "",
+    tipo: "",
+    estado: "",
+  });
   const [tab, setTab] = useState<"admin" | "aux">("admin");
   const [openUserMenu, setOpenUserMenu] = useState(false);
+
   const [auxiliares, setAuxiliares] = useState<any[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const auxSchema = z.object({
@@ -60,7 +73,6 @@ export default function Admin() {
         const res = await axios.get("http://localhost:3000/api/auxiliares");
         setAuxiliares(res.data.data); // 👈 importante
       } catch (error) {
-        console.error("Error al cargar auxiliares", error);
       }
     };
 
@@ -70,7 +82,6 @@ export default function Admin() {
     const fetchAdmin = async () => {
       try {
         const res = await axios.get("http://localhost:3000/api/admin/me");
-        console.log("ADMIN DATA 👉", res.data); // 👈 IMPORTANTE
         setAdminData(res.data);
       } catch (error) {
         console.error("Error cargando admin", error);
@@ -78,6 +89,41 @@ export default function Admin() {
     };
 
     fetchAdmin();
+  }, []);
+  useEffect(() => {
+    const fetchLabs = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/api/laboratorios");
+
+        setLaboratorios(res.data.data);
+      } catch (error) {
+      }
+    };
+
+    fetchLabs();
+  }, []);
+  useEffect(() => {
+    const fetchEquipos = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/api/equipos");
+
+        setEquipos(res.data.data);
+      } catch (error) {
+      }
+    };
+
+    fetchEquipos();
+  }, []);
+  useEffect(() => {
+    const fetchIncidencias = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/api/incidencias");
+        setIncidencias(res.data.data);
+      } catch (error) {
+      }
+    };
+
+    fetchIncidencias();
   }, []);
   const auxiliaresActivos = auxiliares.filter(
     (a) => a.estado === "ACTIVO",
@@ -96,8 +142,6 @@ export default function Admin() {
         "http://localhost:3000/api/auxiliares",
         data,
       );
-
-      console.log(res.data);
       alert("Auxiliar creado");
 
       reset(); // 🔥 limpia formulario
@@ -197,6 +241,29 @@ export default function Admin() {
       },
     );
   };
+  const handleEquipmentChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    setEquipmentData({
+      ...equipmentData,
+      [e.target.name]: e.target.value,
+    });
+  };
+  const guardarEquipo = async () => {
+    try {
+      const res = await axios.post(
+        "http://localhost:3000/api/equipos",
+        equipmentData,
+      );
+
+      toastr.success("Equipo creado");
+
+      setShowEquipmentModal(false);
+    } catch (error) {
+
+      toastr.error("Error al crear equipo");
+    }
+  };
   return (
     <div className="flex h-screen bg-gray-100">
       {/* SIDEBAR */}
@@ -247,7 +314,17 @@ export default function Admin() {
                 text="IA Reportes Inteligentes"
                 badge
               />
-              <MenuItem icon={<ShoppingCart size={18} />} text="Incidencias" />
+              <button
+                onClick={() => setView("incidencias")}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition ${
+                  view === "incidencias"
+                    ? "bg-blue-100 text-blue-700"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                <ShoppingCart size={18} />
+                Incidencias
+              </button>
               <MenuItem
                 icon={<Calendar size={18} />}
                 text="Revisiones por turno"
@@ -267,7 +344,40 @@ export default function Admin() {
               </button>
 
               <Dropdown icon={<FileText size={18} />} text="Reportes diarios" />
-              <Dropdown icon={<Table size={18} />} text="Equipos" />
+              <button
+                onClick={() => toggleMenu("equipos")}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
+              >
+                <div className="flex items-center gap-2">
+                  <Table size={18} />
+                  Equipos
+                </div>
+
+                <ChevronDown
+                  size={16}
+                  className={`transition ${
+                    openMenu === "equipos" ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {openMenu === "equipos" && (
+                <div className="ml-8 mt-2 flex flex-col gap-1">
+                  <button
+                    onClick={() => setShowEquipmentModal(true)}
+                    className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700"
+                  >
+                    Agregar equipo nuevo
+                  </button>
+
+                  <button
+                    onClick={() => setView("equipos")}
+                    className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100"
+                  >
+                    Mostrar equipos
+                  </button>
+                </div>
+              )}
               <Dropdown
                 icon={<Layers size={18} />}
                 text="Movimientos de equipos"
@@ -592,6 +702,135 @@ export default function Admin() {
               </div>
             </div>
           )}
+          {view === "equipos" && (
+            <div className="bg-white rounded-2xl shadow p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">Gestión de Equipos</h2>
+
+                <button
+                  onClick={() => setView("dashboard")}
+                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                >
+                  ← Volver
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b">
+                      <th className="py-3">Código</th>
+
+                      <th>Laboratorio</th>
+
+                      <th>Tipo</th>
+
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {equipos.map((equipo) => (
+                      <tr
+                        key={equipo.id_equipo}
+                        className="border-b hover:bg-gray-50 transition"
+                      >
+                        <td className="py-3 font-medium">
+                          {equipo.codigo_equipo}
+                        </td>
+
+                        <td>{equipo.id_laboratorio}</td>
+
+                        <td>{equipo.tipo}</td>
+
+                        <td>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              equipo.estado === "OPERATIVO"
+                                ? "bg-green-100 text-green-700"
+                                : equipo.estado === "MANTENIMIENTO"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {equipo.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {view === "incidencias" && (
+            <div className="bg-white rounded-2xl shadow p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">
+                  Gestión de Incidencias
+                </h2>
+
+                <button
+                  onClick={() => setView("dashboard")}
+                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                >
+                  ← Volver
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left border-b text-gray-500">
+                      <th className="py-3">Equipo</th>
+                      <th>Laboratorio</th>
+                      <th>Auxiliar</th>
+                      <th>Turno</th>
+                      <th>Tipo</th>
+                      <th>Descripción</th>
+                      <th>Fecha</th>
+                      <th>Hora</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {incidencias.map((inc) => (
+                      <tr
+                        key={inc.id_incidencia}
+                        className="border-b hover:bg-gray-50"
+                      >
+                        <td className="py-3">{inc.equipo?.codigo_equipo}</td>
+
+                        <td>{inc.equipo?.laboratorio?.nombre}</td>
+
+                        <td>{inc.auxiliar?.nombre_completo}</td>
+
+                        <td>{inc.turno}</td>
+
+                        <td>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              inc.tipo === "HARDWARE"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
+                            {inc.tipo}
+                          </span>
+                        </td>
+
+                        <td>{inc.descripcion}</td>
+
+                        <td>{new Date(inc.fecha).toLocaleDateString()}</td>
+
+                        <td>{new Date(inc.createdAt).toLocaleTimeString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </main>
       </div>
       {showModal && (
@@ -781,6 +1020,81 @@ export default function Admin() {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+      {showEquipmentModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[500px] rounded-2xl shadow-xl p-6">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-bold">Registrar Equipo</h2>
+
+              <button
+                onClick={() => setShowEquipmentModal(false)}
+                className="text-red-500 text-xl"
+              >
+                ✖
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <input
+                type="text"
+                name="codigo_equipo"
+                placeholder="Código equipo"
+                className="w-full border p-3 rounded-xl"
+                onChange={handleEquipmentChange}
+              />
+
+              <select
+                name="id_laboratorio"
+                className="w-full border p-3 rounded-xl"
+                onChange={handleEquipmentChange}
+              >
+                <option value="">Seleccionar laboratorio</option>
+
+                {laboratorios.map((lab) => (
+                  <option key={lab.id_laboratorio} value={lab.id_laboratorio}>
+                    {lab.nombre}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="tipo"
+                className="w-full border p-3 rounded-xl"
+                onChange={handleEquipmentChange}
+              >
+                <option value="">Tipo</option>
+                <option value="CPU">CPU</option>
+                <option value="MONITOR">MONITOR</option>
+                <option value="TECLADO">TECLADO</option>
+                <option value="MOUSE">MOUSE</option>
+                <option value="ESTABILIZADOR">ESTABILIZADOR</option>
+                <option value="OTRO">OTRO</option>
+              </select>
+
+              <select
+                name="estado"
+                className="w-full border p-3 rounded-xl"
+                onChange={handleEquipmentChange}
+              >
+                <option value="">Estado</option>
+
+                <option value="OPERATIVO">OPERATIVO</option>
+
+                <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+
+                <option value="DAÑADO">DAÑADO</option>
+              </select>
+
+              <button
+                onClick={guardarEquipo}
+                className="w-full bg-blue-600 text-white p-3 rounded-xl"
+              >
+                Guardar equipo
+              </button>
+            </div>
           </div>
         </div>
       )}

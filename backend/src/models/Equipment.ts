@@ -28,6 +28,9 @@ export class Equipment extends Model {
   })
   estado!: string;
 
-  @BelongsTo(() => Laboratory)
-  laboratorio!: Laboratory;
+  @BelongsTo(() => Laboratory, {
+  as: "laboratorio",
+  foreignKey: "id_laboratorio",
+})
+laboratorio!: Laboratory;
 }

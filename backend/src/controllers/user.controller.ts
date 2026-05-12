@@ -20,7 +20,6 @@ export const crearAuxiliar = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       message: "Error al crear auxiliar",
     });

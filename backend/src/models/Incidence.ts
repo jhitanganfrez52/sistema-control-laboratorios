@@ -1,7 +1,14 @@
 import {
-  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
-  ForeignKey, BelongsTo
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  AutoIncrement,
+  ForeignKey,
+  BelongsTo,
 } from "sequelize-typescript";
+
 import { Equipment } from "./Equipment";
 import { User } from "./User";
 
@@ -24,18 +31,24 @@ export class Incidence extends Model {
   @Column(DataType.DATE)
   fecha!: Date;
 
-  @Column(DataType.ENUM("MAÑANA","TARDE","NOCHE"))
+  @Column(DataType.ENUM("MAÑANA", "TARDE", "NOCHE"))
   turno!: string;
 
-  @Column(DataType.ENUM("HARDWARE","SOFTWARE"))
+  @Column(DataType.ENUM("HARDWARE", "SOFTWARE"))
   tipo!: string;
 
   @Column(DataType.TEXT)
   descripcion!: string;
 
-  @BelongsTo(() => Equipment)
+  @BelongsTo(() => Equipment, {
+    as: "equipo",
+    foreignKey: "id_equipo",
+  })
   equipo!: Equipment;
 
-  @BelongsTo(() => User)
+  @BelongsTo(() => User, {
+    as: "auxiliar",
+    foreignKey: "id_auxiliar",
+  })
   auxiliar!: User;
 }

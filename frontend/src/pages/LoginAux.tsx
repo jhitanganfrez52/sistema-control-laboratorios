@@ -22,8 +22,6 @@ export default function LoginAux() {
         alert("No eres auxiliar");
       }
     } catch (error: any) {
-      console.log(error.response?.data);
-      console.log(error.message);
       alert("Error real, revisa consola");
     }
   };

@@ -20,6 +20,9 @@ import { Notification } from "./models/Notification";
 // 👇 🔥 IMPORTAR RUTAS (ESTO TE FALTABA)
 import userRoutes from "./routes/user.routes";
 import authRoutes from "./routes/auth.routes";
+import incidenceRoutes from "./routes/incidence.routes";
+import equipmentRoutes from "./routes/equipment.routes";
+import laboratoryRoutes from "./routes/laboratory.routes";
 dotenv.config();
 
 const app = express();
@@ -35,6 +38,9 @@ app.use(express.json());
 ====================== */
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
+app.use("/api", incidenceRoutes);
+app.use("/api", equipmentRoutes);
+app.use("/api", laboratoryRoutes);
 app.use("/uploads", express.static("uploads"));
 /* ======================
    SEQUELIZE
