@@ -81,6 +81,7 @@ export const obtenerAdmin = async (req: Request, res: Response) => {
         "estado",
         "fecha_creacion",
         "rol",
+        "foto", // 🔥 FALTABA ESTO
       ],
     });
 

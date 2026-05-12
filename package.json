@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "framer-motion": "^12.38.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
+    "react-circular-progressbar": "^2.2.0",
+    "react-countup": "^6.5.3",
+    "react-is": "^19.2.6",
+    "recharts": "^3.8.1",
+    "socket.io-client": "^4.8.3"
+  }
+}

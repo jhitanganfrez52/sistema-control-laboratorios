@@ -11,15 +11,13 @@ import {
   ChevronDown,
   MessageCircle,
   Headphones,
-  Mail,
-  BarChart3,
-  Puzzle,
   ShieldCheck,
   Search,
   Menu,
   Bell,
   Moon,
   Settings,
+  Monitor,
 } from "lucide-react";
 import axios from "axios";
 import { useForm } from "react-hook-form";
@@ -27,11 +25,14 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toastr from "toastr";
 import "toastr/build/toastr.min.css";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import logo from "../assets/ChatGPT Image 11 may 2026, 11_47_25 p.m..png";
 export default function Admin() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [view, setView] = useState<
-    "dashboard" | "auxiliares" | "equipos" | "incidencias"
+    "dashboard" | "auxiliares" | "equipos" | "incidencias" | "revisiones"
   >("dashboard");
   const toggleMenu = (menu: string) => {
     setOpenMenu(openMenu === menu ? null : menu);
@@ -72,8 +73,7 @@ export default function Admin() {
       try {
         const res = await axios.get("http://localhost:3000/api/auxiliares");
         setAuxiliares(res.data.data); // 👈 importante
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     fetchAuxiliares();
@@ -96,8 +96,7 @@ export default function Admin() {
         const res = await axios.get("http://localhost:3000/api/laboratorios");
 
         setLaboratorios(res.data.data);
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     fetchLabs();
@@ -108,8 +107,7 @@ export default function Admin() {
         const res = await axios.get("http://localhost:3000/api/equipos");
 
         setEquipos(res.data.data);
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     fetchEquipos();
@@ -119,8 +117,7 @@ export default function Admin() {
       try {
         const res = await axios.get("http://localhost:3000/api/incidencias");
         setIncidencias(res.data.data);
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     fetchIncidencias();
@@ -260,10 +257,83 @@ export default function Admin() {
 
       setShowEquipmentModal(false);
     } catch (error) {
-
       toastr.error("Error al crear equipo");
     }
   };
+  const descargarPDF = (inc: any) => {
+    const doc = new jsPDF();
+
+    // TITULO
+    doc.setFontSize(18);
+    doc.text("Reporte de Incidencia", 14, 20);
+
+    // INFO
+    doc.setFontSize(12);
+
+    const datos = [
+      ["Equipo", inc.equipo?.codigo_equipo],
+      ["Laboratorio", inc.equipo?.laboratorio?.nombre],
+      ["Auxiliar", inc.auxiliar?.nombre_completo],
+      ["Turno", inc.turno],
+      ["Tipo", inc.tipo],
+      ["Descripción", inc.descripcion],
+      [
+        "Fecha",
+        new Date(inc.fecha).toLocaleDateString("es-BO", {
+          timeZone: "America/La_Paz",
+        }),
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Campo", "Detalle"]],
+      body: datos,
+    });
+
+    // DESCARGA
+    doc.save(`incidencia_${inc.id_incidencia}.pdf`);
+  };
+  const hoy = new Date();
+
+  const incidenciasHoy = incidencias.filter((i) => {
+    const fechaInc = new Date(i.fecha);
+
+    return (
+      fechaInc.getDate() === hoy.getDate() &&
+      fechaInc.getMonth() === hoy.getMonth() &&
+      fechaInc.getFullYear() === hoy.getFullYear()
+    );
+  });
+
+  const incidenciasPorAuxiliar = auxiliares.map((aux) => ({
+    nombre: aux.nombre_completo,
+    cantidad: incidencias.filter(
+      (i) => i.auxiliar?.id_usuario === aux.id_usuario,
+    ).length,
+  }));
+  const dataTipos = [
+    {
+      tipo: "CPU",
+      cantidad: equipos.filter((e) => e.tipo === "CPU").length,
+    },
+    {
+      tipo: "Monitor",
+      cantidad: equipos.filter((e) => e.tipo === "MONITOR").length,
+    },
+    {
+      tipo: "Teclado",
+      cantidad: equipos.filter((e) => e.tipo === "TECLADO").length,
+    },
+    {
+      tipo: "Mouse",
+      cantidad: equipos.filter((e) => e.tipo === "MOUSE").length,
+    },
+    {
+      tipo: "Estabilizador",
+      cantidad: equipos.filter((e) => e.tipo === "ESTABILIZADOR").length,
+    },
+  ];
   return (
     <div className="flex h-screen bg-gray-100">
       {/* SIDEBAR */}
@@ -316,7 +386,7 @@ export default function Admin() {
               />
               <button
                 onClick={() => setView("incidencias")}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition ${
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg cursor-pointertransition ${
                   view === "incidencias"
                     ? "bg-blue-100 text-blue-700"
                     : "hover:bg-gray-100"
@@ -325,10 +395,17 @@ export default function Admin() {
                 <ShoppingCart size={18} />
                 Incidencias
               </button>
-              <MenuItem
-                icon={<Calendar size={18} />}
-                text="Revisiones por turno"
-              />
+              <button
+                onClick={() => setView("revisiones")}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg cursor pointer transition ${
+                  view === "revisiones"
+                    ? "bg-blue-100 text-blue-700"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                <Calendar size={18} />
+                Revisiones por turno
+              </button>
               <button
                 onClick={() =>
                   setView(view === "auxiliares" ? "dashboard" : "auxiliares")
@@ -342,11 +419,9 @@ export default function Admin() {
                 <User size={18} />
                 Gestión de auxiliares
               </button>
-
-              <Dropdown icon={<FileText size={18} />} text="Reportes diarios" />
               <button
                 onClick={() => toggleMenu("equipos")}
-                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
+                className="flex items-center justify-between w-full px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-100"
               >
                 <div className="flex items-center gap-2">
                   <Table size={18} />
@@ -365,7 +440,7 @@ export default function Admin() {
                 <div className="ml-8 mt-2 flex flex-col gap-1">
                   <button
                     onClick={() => setShowEquipmentModal(true)}
-                    className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700"
+                    className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700 cursor-pointer"
                   >
                     Agregar equipo nuevo
                   </button>
@@ -568,47 +643,145 @@ export default function Admin() {
           {/* ================= DASHBOARD ================= */}
           {view === "dashboard" && (
             <div className="space-y-6">
+              {/* HERO */}
+              <div className="bg-white rounded-3xl shadow-xl relative overflow-visible">
+                <div className="grid grid-cols-2 items-center min-h-[380px]">
+                  {/* IMAGEN */}
+                  <div className="relative flex justify-center items-center">
+                    {/* EFECTO FONDO */}
+                    <div className="absolute w-[420px] h-[420px] bg-blue-100 rounded-full blur-3xl opacity-40"></div>
+
+                    {/* IMAGEN */}
+                    <img
+                      src={logo}
+                      alt="dashboard"
+                      className="
+    relative
+    w-[135%]
+    max-w-[650px]
+    object-contain
+    drop-shadow-2xl
+    transition
+    duration-500
+    mt-6
+    -ml-8
+  "
+                    />
+                  </div>
+
+                  {/* TEXTO */}
+                  <div className="px-8">
+                    <h1 className="text-4xl font-bold text-gray-800 leading-tight">
+                      Sistema Inteligente de <br />
+                      Control de Laboratorios
+                    </h1>
+
+                    <p className="text-gray-500 mt-4 text-lg leading-relaxed">
+                      Administra incidencias, supervisa equipos operativos y
+                      controla el trabajo de auxiliares en tiempo real desde un
+                      solo panel.
+                    </p>
+
+                    <div className="mt-6 flex gap-3">
+                      <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl text-sm font-semibold">
+                        Monitoreo en tiempo real
+                      </div>
+
+                      <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-semibold">
+                        Gestión inteligente
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* CARDS */}
               <div className="grid grid-cols-3 gap-6">
-                <Card title="Auxiliares activos" value={auxiliaresActivos} />
-                <Card title="Equipos operativos" value="45" />
+                {/* AUXILIARES */}
+                <div className="bg-white p-5 rounded-2xl shadow hover:shadow-lg transition">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-gray-500 text-sm">
+                        Auxiliares activos
+                      </p>
 
-                <div className="bg-white p-6 rounded-xl shadow">
-                  <h3 className="text-gray-500">Incidencias de la semana</h3>
+                      <h2 className="text-4xl font-bold text-gray-800 mt-3">
+                        {auxiliaresActivos}
+                      </h2>
+                    </div>
 
-                  <div className="flex justify-center items-center h-40">
-                    <div className="w-32 h-32 rounded-full border-8 border-blue-500 border-t-gray-200 flex items-center justify-center text-xl font-bold">
-                      12
+                    <div className="bg-blue-100 p-3 rounded-xl">
+                      <User className="text-blue-600" size={28} />
                     </div>
                   </div>
 
-                  <p className="text-sm text-center text-gray-500 mt-2">
-                    Incidencias registradas
-                  </p>
+                  <div className="mt-6">
+                    <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                      <div className="h-full w-[75%] bg-blue-600 rounded-full"></div>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-2">
+                      Auxiliares trabajando actualmente
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* GRAFICO */}
-              <div className="bg-white p-6 rounded-xl shadow">
-                <h3 className="text-gray-500 mb-4">Incidencias por día</h3>
+                {/* EQUIPOS */}
+                <div className="bg-white p-5 rounded-2xl shadow hover:shadow-lg transition">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-gray-500 text-sm">
+                        Equipos operativos
+                      </p>
 
-                <div className="flex items-end gap-3 h-40">
-                  {[5, 8, 4, 6, 3, 7, 9].map((h, i) => (
-                    <div
-                      key={i}
-                      className="bg-blue-500 w-6 rounded"
-                      style={{ height: `${h * 10}px` }}
-                    />
-                  ))}
+                      <h2 className="text-4xl font-bold text-gray-800 mt-3">
+                        {equipos.filter((e) => e.estado === "OPERATIVO").length}
+                      </h2>
+                    </div>
+
+                    <div className="bg-green-100 p-3 rounded-xl">
+                      <Monitor className="text-green-600" size={28} />
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="h-2 bg-green-100 rounded-full overflow-hidden">
+                      <div className="h-full w-[85%] bg-green-600 rounded-full"></div>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-2">
+                      Equipos funcionando correctamente
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* STATISTICS */}
-              <div className="bg-white p-6 rounded-xl shadow">
-                <h3 className="text-gray-500 mb-4">Estado de equipos</h3>
+                {/* INCIDENCIAS */}
+                <div className="bg-white p-5 rounded-2xl shadow hover:shadow-lg transition">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-gray-500 text-sm">
+                        Incidencias registradas
+                      </p>
 
-                <div className="h-40 flex items-end">
-                  <div className="w-full h-2 bg-blue-300 rounded-full"></div>
+                      <h2 className="text-4xl font-bold text-gray-800 mt-3">
+                        {incidencias.length}
+                      </h2>
+                    </div>
+
+                    <div className="bg-red-100 p-3 rounded-xl">
+                      <ShieldCheck className="text-red-600" size={28} />
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="h-2 bg-red-100 rounded-full overflow-hidden">
+                      <div className="h-full w-[45%] bg-red-600 rounded-full"></div>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-2">
+                      Reportes detectados en el sistema
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -789,7 +962,7 @@ export default function Admin() {
                       <th>Tipo</th>
                       <th>Descripción</th>
                       <th>Fecha</th>
-                      <th>Hora</th>
+                      <th>Descargar</th>
                     </tr>
                   </thead>
 
@@ -823,11 +996,180 @@ export default function Admin() {
 
                         <td>{new Date(inc.fecha).toLocaleDateString()}</td>
 
-                        <td>{new Date(inc.createdAt).toLocaleTimeString()}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-600"></span>
+
+                            <button
+                              onClick={() => descargarPDF(inc)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs"
+                            >
+                              PDF
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+          {view === "revisiones" && (
+            <div className="bg-white rounded-2xl shadow p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">Revisiones por Turno</h2>
+
+                <button
+                  onClick={() => setView("dashboard")}
+                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                >
+                  ← Volver
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                {/* TURNO DIA */}
+                <div className="border rounded-xl p-4">
+                  <h3 className="font-bold text-blue-600 mb-4">Turno Día</h3>
+
+                  <div className="space-y-3">
+                    {incidencias.filter(
+                      (i) => i.turno?.toUpperCase() === "MAÑANA",
+                    ).length > 0 ? (
+                      incidencias
+                        .filter((i) => i.turno?.toUpperCase() === "MAÑANA")
+                        .map((inc) => (
+                          <div
+                            key={inc.id_incidencia}
+                            className="bg-gray-50 border rounded-lg p-3 space-y-1"
+                          >
+                            <p className="text-sm">
+                              <span className="font-semibold">Fecha:</span>{" "}
+                              {new Date(inc.fecha).toLocaleDateString()}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">Auxiliar:</span>{" "}
+                              {inc.auxiliar?.nombre_completo}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">
+                                Laboratorio:
+                              </span>{" "}
+                              {inc.equipo?.laboratorio?.nombre}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">Equipo:</span>{" "}
+                              {inc.equipo?.codigo_equipo}
+                            </p>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No se reportó ninguna incidencia
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* TURNO TARDE */}
+                <div className="border rounded-xl p-4">
+                  <h3 className="font-bold text-orange-600 mb-4">
+                    Turno Tarde
+                  </h3>
+
+                  <div className="space-y-3">
+                    {incidencias.filter(
+                      (i) => i.turno?.toUpperCase() === "TARDE",
+                    ).length > 0 ? (
+                      incidencias
+                        .filter((i) => i.turno?.toUpperCase() === "TARDE")
+                        .map((inc) => (
+                          <div
+                            key={inc.id_incidencia}
+                            className="bg-gray-50 border rounded-lg p-3 space-y-1"
+                          >
+                            <p className="text-sm">
+                              <span className="font-semibold">Fecha:</span>{" "}
+                              {new Date(inc.fecha).toLocaleDateString()}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">Auxiliar:</span>{" "}
+                              {inc.auxiliar?.nombre_completo}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">
+                                Laboratorio:
+                              </span>{" "}
+                              {inc.equipo?.laboratorio?.nombre}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">Equipo:</span>{" "}
+                              {inc.equipo?.codigo_equipo}
+                            </p>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No se reportó ninguna incidencia
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* TURNO NOCHE */}
+                <div className="border rounded-xl p-4">
+                  <h3 className="font-bold text-purple-600 mb-4">
+                    Turno Noche
+                  </h3>
+
+                  <div className="space-y-3">
+                    {incidencias.filter(
+                      (i) => i.turno?.toUpperCase() === "NOCHE",
+                    ).length > 0 ? (
+                      incidencias
+                        .filter((i) => i.turno?.toUpperCase() === "NOCHE")
+                        .map((inc) => (
+                          <div
+                            key={inc.id_incidencia}
+                            className="bg-gray-50 border rounded-lg p-3 space-y-1"
+                          >
+                            <p className="text-sm">
+                              <span className="font-semibold">Fecha:</span>{" "}
+                              {new Date(inc.fecha).toLocaleDateString()}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">Auxiliar:</span>{" "}
+                              {inc.auxiliar?.nombre_completo}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">
+                                Laboratorio:
+                              </span>{" "}
+                              {inc.equipo?.laboratorio?.nombre}
+                            </p>
+
+                            <p className="text-sm">
+                              <span className="font-semibold">Equipo:</span>{" "}
+                              {inc.equipo?.codigo_equipo}
+                            </p>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No se reportó ninguna incidencia
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
