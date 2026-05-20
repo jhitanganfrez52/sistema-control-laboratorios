@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Calendar,
   User,
-  FileText,
   Table,
   Layers,
   ChevronDown,
@@ -28,11 +27,18 @@ import "toastr/build/toastr.min.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logo from "../assets/ChatGPT Image 11 may 2026, 11_47_25 p.m..png";
+import { useNavigate } from "react-router-dom";
+axios.defaults.withCredentials = true;
 export default function Admin() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [view, setView] = useState<
-    "dashboard" | "auxiliares" | "equipos" | "incidencias" | "revisiones"
+    | "dashboard"
+    | "auxiliares"
+    | "equipos"
+    | "incidencias"
+    | "revisiones"
+    | "laboratorios"
   >("dashboard");
   const toggleMenu = (menu: string) => {
     setOpenMenu(openMenu === menu ? null : menu);
@@ -44,22 +50,26 @@ export default function Admin() {
   const [incidencias, setIncidencias] = useState<any[]>([]);
   const [laboratorios, setLaboratorios] = useState<any[]>([]);
   const [equipos, setEquipos] = useState<any[]>([]);
-  const [equipmentData, setEquipmentData] = useState({
-    codigo_equipo: "",
-    id_laboratorio: "",
-    tipo: "",
-    estado: "",
-  });
   const [tab, setTab] = useState<"admin" | "aux">("admin");
   const [openUserMenu, setOpenUserMenu] = useState(false);
-
+  const [openChat, setOpenChat] = useState(false);
+  const [mensajes, setMensajes] = useState<string[]>([]);
+  const [input, setInput] = useState("");
   const [auxiliares, setAuxiliares] = useState<any[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
+  const [tipoManual, setTipoManual] = useState("");
   const auxSchema = z.object({
-    nombre_completo: z.string().min(3, "Mínimo 3 caracteres"),
-    codigo_acceso: z.string().min(3, "Código requerido"),
-    password: z.string().min(4, "Mínimo 4 caracteres"),
+    nombre_completo: z
+      .string()
+      .min(3, "Mínimo 3 caracteres")
+      .max(100, "Máximo 100 caracteres"),
+
+    codigo_acceso: z.string().min(3, "Código requerido").max(20),
+
+    password: z.string().min(4, "Mínimo 4 caracteres").max(50),
   });
+
+  const [darkMode, setDarkMode] = useState(false);
 
   type AuxForm = z.infer<typeof auxSchema>;
   useEffect(() => {
@@ -70,25 +80,35 @@ export default function Admin() {
   }, []);
   useEffect(() => {
     const fetchAuxiliares = async () => {
-      try {
-        const res = await axios.get("http://localhost:3000/api/auxiliares");
-        setAuxiliares(res.data.data); // 👈 importante
-      } catch (error) {}
+      const res = await axios.get("http://localhost:3000/api/auxiliares");
+
+      setAuxiliares(res.data.data);
     };
 
     fetchAuxiliares();
+
+    const interval = setInterval(fetchAuxiliares, 3000);
+
+    return () => clearInterval(interval);
   }, []);
   useEffect(() => {
     const fetchAdmin = async () => {
       try {
         const res = await axios.get("http://localhost:3000/api/admin/me");
+
         setAdminData(res.data);
       } catch (error) {
-        console.error("Error cargando admin", error);
+        navigate("/login", { replace: true });
       }
     };
 
-    fetchAdmin();
+    fetchAdmin(); // inicial
+
+    const interval = setInterval(() => {
+      fetchAdmin(); // refresca cada 3-5 segundos
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
   useEffect(() => {
     const fetchLabs = async () => {
@@ -116,12 +136,31 @@ export default function Admin() {
     const fetchIncidencias = async () => {
       try {
         const res = await axios.get("http://localhost:3000/api/incidencias");
+
         setIncidencias(res.data.data);
-      } catch (error) {}
+      } catch (error) {
+        console.log(error);
+      }
     };
 
+    // carga inicial
     fetchIncidencias();
+
+    // actualiza cada 3 segundos
+    const interval = setInterval(() => {
+      fetchIncidencias();
+    }, 3000);
+
+    // limpiar
+    return () => clearInterval(interval);
   }, []);
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
   const auxiliaresActivos = auxiliares.filter(
     (a) => a.estado === "ACTIVO",
   ).length;
@@ -148,15 +187,45 @@ export default function Admin() {
     }
   };
   const adminSchema = z.object({
-    nombre: z.string().min(3),
-    apellido: z.string().min(3),
-    ci: z.string().min(5),
-    telefono: z.string().min(7),
-    codigo_acceso: z.string().min(3),
-    password: z.string().min(4),
+    nombre: z.string().min(3, "Nombre muy corto"),
+
+    apellido: z.string().min(3, "Apellido muy corto"),
+
+    ci: z
+      .string()
+      .regex(/^[0-9]+$/, "Solo números")
+      .min(5, "CI inválido"),
+
+    telefono: z
+      .string()
+      .regex(/^[0-9]+$/, "Solo números")
+      .min(7, "Teléfono inválido"),
+
+    codigo_acceso: z.string().min(3, "Código inválido"),
+
+    password: z.string().min(4, "Mínimo 4 caracteres"),
   });
   type AdminForm = z.infer<typeof adminSchema>;
+  const equipmentSchema = z.object({
+    codigo_equipo: z.string().min(3, "Código requerido"),
 
+    id_laboratorio: z.string().min(1, "Seleccione laboratorio"),
+
+    tipo: z.string().min(1, "Seleccione tipo"),
+
+    estado: z.string().min(1, "Seleccione estado"),
+  });
+  type EquipmentForm = z.infer<typeof equipmentSchema>;
+  const {
+    register: registerEquipment,
+    handleSubmit: handleSubmitEquipment,
+    formState: { errors: errorsEquipment },
+    reset: resetEquipment,
+    watch,
+  } = useForm<EquipmentForm>({
+    resolver: zodResolver(equipmentSchema),
+  });
+  const watchEquipmentTipo = watch("tipo");
   const {
     register: registerAdmin,
     handleSubmit: handleSubmitAdmin,
@@ -165,6 +234,7 @@ export default function Admin() {
   } = useForm<AdminForm>({
     resolver: zodResolver(adminSchema),
   });
+
   const crearAdmin = async (data: AdminForm) => {
     try {
       await axios.post("http://localhost:3000/api/admin", data);
@@ -177,6 +247,7 @@ export default function Admin() {
   const obtenerPerfilAdmin = async () => {
     try {
       const res = await axios.get("http://localhost:3000/api/admin/me");
+
       setAdminData(res.data);
       setShowProfileModal(true);
     } catch (error) {
@@ -221,7 +292,12 @@ export default function Admin() {
                 ...adminData,
                 foto: res.data.foto,
               });
+              // 🔥 volver a cargar auxiliares
+              const resAux = await axios.get(
+                "http://localhost:3000/api/auxiliares",
+              );
 
+              setAuxiliares(resAux.data.data);
               toastr.clear(); // 🔥 limpia el toast
               toastr.success("Foto actualizada");
             } catch (error) {
@@ -238,22 +314,20 @@ export default function Admin() {
       },
     );
   };
-  const handleEquipmentChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    setEquipmentData({
-      ...equipmentData,
-      [e.target.name]: e.target.value,
-    });
-  };
-  const guardarEquipo = async () => {
+  const guardarEquipo = async (data: EquipmentForm) => {
     try {
-      const res = await axios.post(
-        "http://localhost:3000/api/equipos",
-        equipmentData,
-      );
+      const payload = {
+        ...data,
+        tipo: data.tipo === "OTRO" ? tipoManual : data.tipo,
+      };
+
+      await axios.post("http://localhost:3000/api/equipos", payload);
 
       toastr.success("Equipo creado");
+
+      resetEquipment();
+
+      setTipoManual("");
 
       setShowEquipmentModal(false);
     } catch (error) {
@@ -294,46 +368,39 @@ export default function Admin() {
     // DESCARGA
     doc.save(`incidencia_${inc.id_incidencia}.pdf`);
   };
-  const hoy = new Date();
+  const navigate = useNavigate();
 
-  const incidenciasHoy = incidencias.filter((i) => {
-    const fechaInc = new Date(i.fecha);
+  const cerrarSesion = async () => {
+    try {
+      await axios.post(
+        "http://localhost:3000/api/logout",
+        {},
+        {
+          withCredentials: true,
+        },
+      );
 
-    return (
-      fechaInc.getDate() === hoy.getDate() &&
-      fechaInc.getMonth() === hoy.getMonth() &&
-      fechaInc.getFullYear() === hoy.getFullYear()
-    );
-  });
+      localStorage.clear();
+      sessionStorage.clear();
 
-  const incidenciasPorAuxiliar = auxiliares.map((aux) => ({
-    nombre: aux.nombre_completo,
-    cantidad: incidencias.filter(
-      (i) => i.auxiliar?.id_usuario === aux.id_usuario,
-    ).length,
-  }));
-  const dataTipos = [
-    {
-      tipo: "CPU",
-      cantidad: equipos.filter((e) => e.tipo === "CPU").length,
-    },
-    {
-      tipo: "Monitor",
-      cantidad: equipos.filter((e) => e.tipo === "MONITOR").length,
-    },
-    {
-      tipo: "Teclado",
-      cantidad: equipos.filter((e) => e.tipo === "TECLADO").length,
-    },
-    {
-      tipo: "Mouse",
-      cantidad: equipos.filter((e) => e.tipo === "MOUSE").length,
-    },
-    {
-      tipo: "Estabilizador",
-      cantidad: equipos.filter((e) => e.tipo === "ESTABILIZADOR").length,
-    },
-  ];
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  useEffect(() => {
+    const verificarSesion = async () => {
+      try {
+        await axios.get("http://localhost:3000/api/admin/me", {
+          withCredentials: true,
+        });
+      } catch (error) {
+        navigate("/login", { replace: true });
+      }
+    };
+
+    verificarSesion();
+  }, [navigate]);
   return (
     <div className="flex h-screen bg-gray-100">
       {/* SIDEBAR */}
@@ -348,7 +415,7 @@ export default function Admin() {
 
             <button
               onClick={() => toggleMenu("Panel de Control")}
-              className="flex items-center cursor-pointer justify-between w-full px-3 py-2 rounded-lg bg-blue-100 text-black font-medium"
+              className="flex items-center cursor-pointer justify-between w-full px-3 py-2 rounded-lg bg-blue-100 text-black font-medium cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <LayoutDashboard size={18} />
@@ -366,14 +433,14 @@ export default function Admin() {
               <div className="ml-8 mt-2 flex flex-col gap-1">
                 <button
                   onClick={() => setShowModal(true)}
-                  className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700"
+                  className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700 cursor-pointer"
                 >
                   Usuarios (Admin / Aux)
                 </button>
-                <button className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100">
+                <button className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100 cursor-pointer">
                   Asistencias
                 </button>
-                <button className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100">
+                <button className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100 cursor-pointer">
                   Laboratorios
                 </button>
               </div>
@@ -386,7 +453,7 @@ export default function Admin() {
               />
               <button
                 onClick={() => setView("incidencias")}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg cursor-pointertransition ${
+                className={`flex items-center gap-2 w-full px-3 py-2 cursor-pointer rounded-lg transition ${
                   view === "incidencias"
                     ? "bg-blue-100 text-blue-700"
                     : "hover:bg-gray-100"
@@ -397,7 +464,7 @@ export default function Admin() {
               </button>
               <button
                 onClick={() => setView("revisiones")}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg cursor pointer transition ${
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg cursor-pointer transition ${
                   view === "revisiones"
                     ? "bg-blue-100 text-blue-700"
                     : "hover:bg-gray-100"
@@ -447,20 +514,59 @@ export default function Admin() {
 
                   <button
                     onClick={() => setView("equipos")}
-                    className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100"
+                    className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100 cursor-pointer"
                   >
                     Mostrar equipos
                   </button>
                 </div>
               )}
-              <Dropdown
-                icon={<Layers size={18} />}
-                text="Movimientos de equipos"
-              />
+              <button
+                onClick={() => toggleMenu("laboratorios")}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers size={18} />
+                  Laboratorios
+                </div>
+
+                <ChevronDown
+                  size={16}
+                  className={`transition ${
+                    openMenu === "laboratorios" ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {openMenu === "laboratorios" && (
+                <div className="ml-8 mt-2 flex flex-col gap-1">
+                  <button
+                    onClick={() => {
+                      // aquí luego conectas tu modal o función
+                      alert("Agregar laboratorio");
+                    }}
+                    className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700 cursor-pointer"
+                  >
+                    Agregar laboratorio
+                  </button>
+
+                  <button
+                    onClick={() => setView("laboratorios")}
+                    className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100 cursor-pointer"
+                  >
+                    Mostrar laboratorios
+                  </button>
+                </div>
+              )}
             </div>
 
-            <p className="text-xs text-gray-400 mt-6 mb-2 px-2">SOPORTE</p>
-            <MenuItem icon={<MessageCircle size={18} />} text="Chat interno" />
+            <p className="text-xs text-gray-400 mt-6 mb-2 px-2">CHAT</p>
+            <button
+              onClick={() => setOpenChat(true)}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer"
+            >
+              <MessageCircle size={18} />
+              Chat Interno
+            </button>
             <MenuItem
               icon={<Headphones size={18} />}
               text="Soporte técnico"
@@ -477,7 +583,7 @@ export default function Admin() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg hover:bg-gray-100"
+              className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
             >
               <Menu size={20} />
             </button>
@@ -493,11 +599,14 @@ export default function Admin() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 rounded-lg hover:bg-gray-100">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
+            >
               <Moon size={20} />
             </button>
 
-            <button className="p-2 rounded-lg hover:bg-gray-100 relative">
+            <button className="p-2 rounded-lg hover:bg-gray-100 relative cursor-pointer">
               <Bell size={20} />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
@@ -527,9 +636,12 @@ export default function Admin() {
                 {/* INFO */}
                 <div className="text-left leading-tight">
                   <p className="text-sm font-semibold text-gray-800">
-                    Administrador
+                    {adminData?.nombre_completo}
                   </p>
-                  <p className="text-xs text-gray-500">Admin principal</p>
+
+                  <p className="text-xs text-gray-500">
+                    {adminData?.rol?.nombre}
+                  </p>
                 </div>
 
                 {/* ICONO */}
@@ -547,9 +659,12 @@ export default function Admin() {
                   {/* HEADER */}
                   <div className="px-4 py-3 bg-gray-50">
                     <p className="text-sm font-semibold text-gray-800">
-                      Administrador
+                      {adminData?.nombre_completo}
                     </p>
-                    <p className="text-xs text-gray-500">admin@icepal.com</p>
+
+                    <p className="text-xs text-gray-500">
+                      {adminData?.codigo_acceso}
+                    </p>
                   </div>
 
                   {/* OPCIONES */}
@@ -560,12 +675,12 @@ export default function Admin() {
                         obtenerPerfilAdmin();
                         setOpenUserMenu(false);
                       }}
-                      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm"
+                      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm cursor-pointer"
                     >
                       <User size={16} /> Perfil
                     </button>
 
-                    <button className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm">
+                    <button className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm cursor-pointer">
                       <Settings size={16} /> Configuración
                     </button>
                   </div>
@@ -577,7 +692,7 @@ export default function Admin() {
                     {/* CERRAR */}
                     <button
                       onClick={() => setShowProfileModal(false)}
-                      className="absolute top-3 right-3 text-gray-500"
+                      className="absolute top-3 right-3 text-gray-500 cursor-pointer"
                     >
                       ✖
                     </button>
@@ -610,7 +725,9 @@ export default function Admin() {
                         {adminData.nombre_completo}
                       </h2>
 
-                      <p className="text-sm text-gray-500">{adminData.rol}</p>
+                      <p className="text-sm text-gray-500">
+                        {adminData?.rol?.nombre}
+                      </p>
                     </div>
 
                     {/* INFO */}
@@ -630,6 +747,12 @@ export default function Admin() {
                           adminData.fecha_creacion,
                         ).toLocaleDateString()}
                       </p>
+                      <button
+                        onClick={cerrarSesion}
+                        className="w-full mt-5 bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl cursor-pointer transition"
+                      >
+                        Cerrar sesión
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -827,8 +950,12 @@ export default function Admin() {
                           {/* USUARIO */}
                           <td className="py-3 flex items-center gap-3">
                             <img
-                              src={`https://i.pravatar.cc/150?u=${aux.id_usuario}`}
-                              className="w-10 h-10 rounded-full"
+                              src={
+                                aux.foto
+                                  ? `http://localhost:3000/uploads/${aux.foto}`
+                                  : "https://i.pravatar.cc/150"
+                              }
+                              className="w-10 h-10 rounded-full object-cover"
                             />
                             <span className="font-medium">
                               {aux.nombre_completo}
@@ -855,10 +982,9 @@ export default function Admin() {
                                 const res = await axios.get(
                                   "http://localhost:3000/api/auxiliares",
                                 );
-
                                 setAuxiliares(res.data.data);
                               }}
-                              className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
+                              className={`px-3 py-1 rounded-full text-xs font-semibold transition  cursor-pointer${
                                 aux.estado === "ACTIVO"
                                   ? "bg-green-100 text-green-700 hover:bg-green-200"
                                   : "bg-red-100 text-red-600 hover:bg-red-200"
@@ -882,7 +1008,7 @@ export default function Admin() {
 
                 <button
                   onClick={() => setView("dashboard")}
-                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 cursor-pointer"
                 >
                   ← Volver
                 </button>
@@ -945,7 +1071,7 @@ export default function Admin() {
 
                 <button
                   onClick={() => setView("dashboard")}
-                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 cursor-pointer"
                 >
                   ← Volver
                 </button>
@@ -1022,7 +1148,7 @@ export default function Admin() {
 
                 <button
                   onClick={() => setView("dashboard")}
-                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                  className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 cursor-pointer"
                 >
                   ← Volver
                 </button>
@@ -1170,6 +1296,60 @@ export default function Admin() {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+          {openChat && (
+            <div className="fixed right-0 top-0 h-full w-[350px] bg-white shadow-2xl border-l flex flex-col z-50">
+              {/* HEADER */}
+              <div className="p-4 border-b flex justify-between items-center">
+                <h2 className="font-bold">Chat Interno (Admin)</h2>
+
+                <button
+                  onClick={() => setOpenChat(false)}
+                  className="text-red-500 cursor-pointer"
+                >
+                  ✖
+                </button>
+              </div>
+
+              {/* MENSAJES */}
+              <div className="flex-1 p-3 overflow-y-auto space-y-2 bg-gray-50">
+                {mensajes.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center mt-10">
+                    No hay mensajes
+                  </p>
+                ) : (
+                  mensajes.map((msg, i) => (
+                    <div
+                      key={i}
+                      className="bg-white p-2 rounded shadow text-sm"
+                    >
+                      {msg}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* INPUT */}
+              <div className="p-3 border-t flex gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Escribe un mensaje..."
+                  className="flex-1 border rounded px-2 py-1 text-sm"
+                />
+
+                <button
+                  onClick={() => {
+                    if (!input.trim()) return;
+                    setMensajes([...mensajes, input]);
+                    setInput("");
+                  }}
+                  className="bg-blue-600 text-white px-3 rounded cursor-pointer"
+                >
+                  Enviar
+                </button>
               </div>
             </div>
           )}
@@ -1357,7 +1537,7 @@ export default function Admin() {
                   )}
                 </div>
 
-                <button className="col-span-2 bg-blue-600 text-white py-2 rounded">
+                <button className="col-span-2 bg-blue-600 text-white py-2 rounded cursor-pointer">
                   Crear Auxiliar
                 </button>
               </form>
@@ -1373,25 +1553,32 @@ export default function Admin() {
 
               <button
                 onClick={() => setShowEquipmentModal(false)}
-                className="text-red-500 text-xl"
+                className="text-red-500 text-xl cursor-pointer"
               >
                 ✖
               </button>
             </div>
 
-            <div className="space-y-4">
+            <form
+              onSubmit={handleSubmitEquipment(guardarEquipo)}
+              className="space-y-4"
+            >
               <input
                 type="text"
-                name="codigo_equipo"
                 placeholder="Código equipo"
                 className="w-full border p-3 rounded-xl"
-                onChange={handleEquipmentChange}
+                {...registerEquipment("codigo_equipo")}
               />
 
+              {errorsEquipment.codigo_equipo && (
+                <p className="text-red-500 text-sm">
+                  {errorsEquipment.codigo_equipo.message}
+                </p>
+              )}
+
               <select
-                name="id_laboratorio"
                 className="w-full border p-3 rounded-xl"
-                onChange={handleEquipmentChange}
+                {...registerEquipment("id_laboratorio")}
               >
                 <option value="">Seleccionar laboratorio</option>
 
@@ -1402,24 +1589,54 @@ export default function Admin() {
                 ))}
               </select>
 
-              <select
-                name="tipo"
-                className="w-full border p-3 rounded-xl"
-                onChange={handleEquipmentChange}
-              >
-                <option value="">Tipo</option>
-                <option value="CPU">CPU</option>
-                <option value="MONITOR">MONITOR</option>
-                <option value="TECLADO">TECLADO</option>
-                <option value="MOUSE">MOUSE</option>
-                <option value="ESTABILIZADOR">ESTABILIZADOR</option>
-                <option value="OTRO">OTRO</option>
-              </select>
+              {errorsEquipment.id_laboratorio && (
+                <p className="text-red-500 text-sm">
+                  {errorsEquipment.id_laboratorio.message}
+                </p>
+              )}
 
               <select
-                name="estado"
                 className="w-full border p-3 rounded-xl"
-                onChange={handleEquipmentChange}
+                {...registerEquipment("tipo")}
+              >
+                <option value="">Tipo</option>
+
+                <option value="CPU">CPU</option>
+
+                <option value="LAPTOP">LAPTOP</option>
+
+                <option value="OTRO">OTRO</option>
+              </select>
+              {watchEquipmentTipo === "OTRO" && (
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Escriba el tipo manualmente"
+                    value={tipoManual}
+                    onChange={(e) => setTipoManual(e.target.value)}
+                    className="w-full border p-3 pr-10 rounded-xl"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTipoManual("");
+                      resetEquipment({
+                        codigo_equipo: "",
+                        id_laboratorio: "",
+                        tipo: "",
+                        estado: "",
+                      });
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 font-bold cursor-pointer"
+                  >
+                    ✖
+                  </button>
+                </div>
+              )}
+              <select
+                className="w-full border p-3 rounded-xl"
+                {...registerEquipment("estado")}
               >
                 <option value="">Estado</option>
 
@@ -1431,12 +1648,12 @@ export default function Admin() {
               </select>
 
               <button
-                onClick={guardarEquipo}
-                className="w-full bg-blue-600 text-white p-3 rounded-xl"
+                type="submit"
+                className="w-full bg-blue-600 text-white p-3 rounded-xl cursor-pointer"
               >
                 Guardar equipo
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -1454,7 +1671,7 @@ function MenuItem({ icon, text, badge }: any) {
         {text}
       </div>
       {badge && (
-        <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">
+        <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded cursor-pointer">
           NUEVO
         </span>
       )}
@@ -1464,7 +1681,7 @@ function MenuItem({ icon, text, badge }: any) {
 
 function Dropdown({ icon, text }: any) {
   return (
-    <button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100">
+    <button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer">
       <div className="flex items-center gap-2">
         {icon}
         {text}

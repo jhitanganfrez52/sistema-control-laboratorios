@@ -1,61 +1,91 @@
-// controllers/auth.controller.ts
 import { Request, Response } from "express";
-import { User } from "../models/User";
+import session from "express-session";
 
-export const loginAdmin = async (req: Request, res: Response) => {
+import bcrypt from "bcryptjs";
+
+import { User } from "../models/User";
+import { Role } from "../models/Role";
+
+interface SessionRequest extends Request {
+  session: session.Session & {
+    usuario?: {
+      id_usuario: number;
+      id_rol: number;
+    };
+  };
+}
+
+export const login = async (req: SessionRequest, res: Response) => {
   try {
     const { codigo_acceso, password } = req.body;
 
+    console.log("CODIGO:", codigo_acceso);
+    console.log("PASSWORD:", password);
+
     const user = await User.findOne({
-      where: { codigo_acceso, password, rol: "ADMINISTRADOR" },
+      where: {
+        codigo_acceso,
+      },
+
+      include: [Role],
     });
+
+    console.log("USUARIO:", user);
+
     if (!user) {
-      return res.status(401).json({
-        message: "Credenciales incorrectas",
+      return res.status(404).json({
+        message: "Usuario no encontrado",
       });
     }
+
+    console.log("HASH DB:", user.password);
+
+    const passwordCorrecta = await bcrypt.compare(password, user.password);
+
+    console.log("COMPARE:", passwordCorrecta);
+
+    if (!passwordCorrecta) {
+      return res.status(401).json({
+        message: "Contraseña incorrecta",
+      });
+    }
+
+    req.session.usuario = {
+      id_usuario: user.id_usuario,
+      id_rol: user.id_rol,
+    };
 
     res.json({
       message: "Login correcto",
       data: user,
     });
-
   } catch (error) {
+    console.log(error);
+
     res.status(500).json({
-      message: "Error en login",
+      message: "Error login",
     });
   }
 };
-export const loginAux = async (req: Request, res: Response) => {
-  if (!req.body) {
-    return res.status(400).json({
-      message: "No se envió body",
+export const logout = async (
+  req: SessionRequest,
+  res: Response
+) => {
+
+  req.session.destroy((err) => {
+
+    if (err) {
+      return res.status(500).json({
+        message: "Error cerrando sesión",
+      });
+    }
+
+    res.clearCookie("connect.sid");
+
+    return res.status(200).json({
+      message: "Sesión cerrada",
     });
-  }
 
-  const { codigo_acceso } = req.body;
-
-  if (!codigo_acceso) {
-    return res.status(400).json({
-      message: "Falta codigo_acceso",
-    });
-  }
-
-  const user = await User.findOne({
-    where: {
-      codigo_acceso,
-      rol: "AUXILIAR",
-    },
   });
 
-  if (!user) {
-    return res.status(401).json({
-      message: "No eres auxiliar",
-    });
-  }
-
-  res.json({
-    rol: user.rol,
-    data: user,
-  });
 };

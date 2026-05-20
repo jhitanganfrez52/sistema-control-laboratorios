@@ -5,8 +5,10 @@ import {
   DataType,
   PrimaryKey,
   AutoIncrement,
+  ForeignKey,
+  BelongsTo,
 } from "sequelize-typescript";
-
+import { Role } from "./Role";
 @Table({ tableName: "usuarios", timestamps: false })
 export class User extends Model {
   @PrimaryKey
@@ -22,10 +24,6 @@ export class User extends Model {
 
   @Column(DataType.STRING)
   password!: string;
-
-  @Column(DataType.ENUM("ADMINISTRADOR", "AUXILIAR"))
-  rol!: string;
-
   @Column({
     type: DataType.ENUM("ACTIVO", "INACTIVO"),
     defaultValue: "ACTIVO",
@@ -37,4 +35,10 @@ export class User extends Model {
 
   @Column(DataType.STRING)
   foto!: string;
+  @ForeignKey(() => Role)
+  @Column(DataType.INTEGER)
+  id_rol!: number;
+
+  @BelongsTo(() => Role)
+  rol!: Role;
 }

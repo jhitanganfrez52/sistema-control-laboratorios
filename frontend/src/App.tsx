@@ -1,29 +1,57 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
-import Home from "./pages/Home";
 import Admin from "./pages/PanelAdmin";
 import Aux from "./pages/PanelAuxi";
-
-import LoginAdmin from "./pages/LoginAdmin";
-import LoginAux from "./pages/LoginAux";
+import Login from "./pages/Login";
 
 function App() {
+
   return (
+
     <BrowserRouter>
+
       <Routes>
 
-        {/* 🟦 ADMIN */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login-admin" element={<LoginAdmin />} />
-        <Route path="/admin" element={<Admin />} />
+        {/* LOGIN */}
+        <Route
+          path="/"
+          element={<Login />}
+        />
 
-        {/* 🟩 AUXILIAR */}
-        <Route path="/login-aux" element={<LoginAux />} />
-        <Route path="/aux" element={<Aux />} />
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        {/* ADMIN */}
+        <Route
+          path="/admin"
+          element={<Admin />}
+        />
+
+        {/* AUX */}
+        <Route
+          path="/aux"
+          element={<Aux />}
+        />
+
+        {/* RUTA NO EXISTE */}
+        <Route
+          path="*"
+          element={<Navigate to="/" />}
+        />
 
       </Routes>
+
     </BrowserRouter>
+
   );
+
 }
 
 export default App;
