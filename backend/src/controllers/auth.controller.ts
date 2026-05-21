@@ -37,6 +37,12 @@ export const login = async (req: SessionRequest, res: Response) => {
         message: "Usuario no encontrado",
       });
     }
+    if (user.estado !== "ACTIVO") {
+      return res.status(403).json({
+        message:
+          "Usted ha sido desactivado, por favor comuníquese con el administrador o dirección. Gracias.",
+      });
+    }
 
     console.log("HASH DB:", user.password);
 
@@ -67,13 +73,8 @@ export const login = async (req: SessionRequest, res: Response) => {
     });
   }
 };
-export const logout = async (
-  req: SessionRequest,
-  res: Response
-) => {
-
+export const logout = async (req: SessionRequest, res: Response) => {
   req.session.destroy((err) => {
-
     if (err) {
       return res.status(500).json({
         message: "Error cerrando sesión",
@@ -85,7 +86,5 @@ export const logout = async (
     return res.status(200).json({
       message: "Sesión cerrada",
     });
-
   });
-
 };

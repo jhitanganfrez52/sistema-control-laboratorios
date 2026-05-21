@@ -13,7 +13,6 @@ import { useNavigate } from "react-router-dom";
 export default function Aux() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [openModal, setOpenModal] = useState(false);
-
   const [openUserMenu, setOpenUserMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [equipos, setEquipos] = useState<any[]>([]);
@@ -32,7 +31,9 @@ export default function Aux() {
   const [input, setInput] = useState("");
   useEffect(() => {
     const cargarDatos = async () => {
-      const resEquipos = await fetch("http://localhost:3000/api/equipos");
+      const resEquipos = await fetch("http://localhost:3000/api/equipos", {
+        credentials: "include",
+      });
 
       const dataEquipos = await resEquipos.json();
       setEquipos(dataEquipos.data);
@@ -43,7 +44,9 @@ export default function Aux() {
   useEffect(() => {
     const fetchIncidencias = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/incidencias");
+        const res = await fetch("http://localhost:3000/api/incidencias", {
+          credentials: "include",
+        });
 
         const data = await res.json();
 
@@ -103,6 +106,7 @@ export default function Aux() {
 
       const response = await fetch("http://localhost:3000/api/incidencias", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -113,7 +117,7 @@ export default function Aux() {
 
       setIncidencias((prev) => [data.data, ...prev]);
 
-      alert(data.message);
+      toastr.success(data.message);
 
       setOpenModal(false);
 
@@ -125,7 +129,7 @@ export default function Aux() {
         descripcion: "",
       });
     } catch (error) {
-      alert("Error al guardar");
+      toastr.error("Error al guardar");
     }
   };
   const navigate = useNavigate();
@@ -135,54 +139,31 @@ export default function Aux() {
         method: "POST",
         credentials: "include",
       });
-
       localStorage.clear();
       sessionStorage.clear();
-
       navigate("/login", { replace: true });
-
       window.location.reload();
     } catch (error) {
       console.log(error);
     }
   };
   useEffect(() => {
-    const verificarSesion = async () => {
+    const verificarAux = async () => {
       try {
-        await fetch("http://localhost:3000/api/auxiliares/me", {
+        const res = await fetch("http://localhost:3000/api/auxiliares/me", {
           credentials: "include",
         });
-      } catch {
-        navigate("/login", { replace: true });
-      }
-    };
+        const data = await res.json();
 
-    verificarSesion();
-  }, []);
-  useEffect(() => {
-  const verificarAux = async () => {
-    try {
-      const res = await fetch(
-        "http://localhost:3000/api/auxiliares/me",
-        {
-          credentials: "include",
+        if (data.rol?.nombre !== "AUXILIAR") {
+          navigate("/login");
         }
-      );
-
-      const data = await res.json();
-
-      // si NO es auxiliar
-      if (data.rol?.nombre !== "AUXILIAR") {
+      } catch {
         navigate("/login");
       }
-
-    } catch {
-      navigate("/login");
-    }
-  };
-
-  verificarAux();
-}, []);
+    };
+    verificarAux();
+  }, []);
   return (
     <div className="flex h-screen bg-gray-100">
       {/* SIDEBAR */}
@@ -212,16 +193,12 @@ export default function Aux() {
               Chat Interno
             </button>
           </div>
-
           <div className="bg-blue-50 p-4 rounded-xl text-center">
             <p className="text-sm font-semibold">Sistema ICEPAL</p>
           </div>
         </aside>
       )}
-
-      {/* MAIN */}
       <div className="flex-1 flex flex-col">
-        {/* TOPBAR */}
         <header className="bg-white px-6 py-4 flex justify-between items-center border-b">
           <button onClick={() => setSidebarOpen(!sidebarOpen)}>
             <Menu />
@@ -506,9 +483,9 @@ export default function Aux() {
                             foto: data.foto,
                           });
 
-                          alert("Foto actualizada");
+                          toastr.success("Foto actualizada");
                         } catch (error) {
-                          alert("Error al subir");
+                          toastr.error("Error al subir");
                         }
                       }}
                     />

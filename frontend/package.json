@@ -28,6 +28,7 @@
     "recharts": "^3.8.1",
     "sequelize": "^6.37.8",
     "sequelize-typescript": "^2.1.6",
+    "socket.io-client": "^4.8.3",
     "toastr": "^2.1.4",
     "zod": "^4.3.6"
   },

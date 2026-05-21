@@ -68,9 +68,6 @@ export default function Admin() {
 
     password: z.string().min(4, "Mínimo 4 caracteres").max(50),
   });
-
-  const [darkMode, setDarkMode] = useState(false);
-
   type AuxForm = z.infer<typeof auxSchema>;
   useEffect(() => {
     const handleClickOutside = () => setOpenUserMenu(false);
@@ -116,10 +113,18 @@ export default function Admin() {
         const res = await axios.get("http://localhost:3000/api/laboratorios");
 
         setLaboratorios(res.data.data);
-      } catch (error) {}
+      } catch (error) {
+        console.log(error);
+      }
     };
 
     fetchLabs();
+
+    const interval = setInterval(() => {
+      fetchLabs();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
   useEffect(() => {
     const fetchEquipos = async () => {
@@ -127,10 +132,18 @@ export default function Admin() {
         const res = await axios.get("http://localhost:3000/api/equipos");
 
         setEquipos(res.data.data);
-      } catch (error) {}
+      } catch (error) {
+        console.log(error);
+      }
     };
 
     fetchEquipos();
+
+    const interval = setInterval(() => {
+      fetchEquipos();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
   useEffect(() => {
     const fetchIncidencias = async () => {
@@ -154,13 +167,6 @@ export default function Admin() {
     // limpiar
     return () => clearInterval(interval);
   }, []);
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [darkMode]);
   const auxiliaresActivos = auxiliares.filter(
     (a) => a.estado === "ACTIVO",
   ).length;
@@ -178,12 +184,12 @@ export default function Admin() {
         "http://localhost:3000/api/auxiliares",
         data,
       );
-      alert("Auxiliar creado");
+      toastr.success("Auxiliar creado");
 
       reset(); // 🔥 limpia formulario
     } catch (error) {
       console.error(error);
-      alert("Error");
+      toastr.error("Error");
     }
   };
   const adminSchema = z.object({
@@ -238,10 +244,10 @@ export default function Admin() {
   const crearAdmin = async (data: AdminForm) => {
     try {
       await axios.post("http://localhost:3000/api/admin", data);
-      alert("Admin creado");
+      toastr.success("Admin creado");
       resetAdmin();
     } catch (error) {
-      alert("Error");
+      toastr.error("Error");
     }
   };
   const obtenerPerfilAdmin = async () => {
@@ -252,7 +258,7 @@ export default function Admin() {
       setShowProfileModal(true);
     } catch (error) {
       console.error(error);
-      alert("Error al cargar perfil");
+      toastr.error("Error al cargar perfil");
     }
   };
   const handleUpload = async (e: any) => {
@@ -388,19 +394,6 @@ export default function Admin() {
       console.log(error);
     }
   };
-  useEffect(() => {
-    const verificarSesion = async () => {
-      try {
-        await axios.get("http://localhost:3000/api/admin/me", {
-          withCredentials: true,
-        });
-      } catch (error) {
-        navigate("/login", { replace: true });
-      }
-    };
-
-    verificarSesion();
-  }, [navigate]);
   return (
     <div className="flex h-screen bg-gray-100">
       {/* SIDEBAR */}
@@ -542,13 +535,12 @@ export default function Admin() {
                   <button
                     onClick={() => {
                       // aquí luego conectas tu modal o función
-                      alert("Agregar laboratorio");
+                      toastr.info("Agregar laboratorio");
                     }}
                     className="text-left text-sm px-2 py-1 rounded bg-blue-100 text-blue-700 cursor-pointer"
                   >
                     Agregar laboratorio
                   </button>
-
                   <button
                     onClick={() => setView("laboratorios")}
                     className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100 cursor-pointer"
@@ -599,10 +591,7 @@ export default function Admin() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
-            >
+            <button className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer">
               <Moon size={20} />
             </button>
 
@@ -624,7 +613,7 @@ export default function Admin() {
                   <img
                     src={
                       adminData?.foto
-                        ? `http://localhost:3000/uploads/${adminData.foto}`
+                        ? `http://localhost:3000/uploads/${adminData.foto}?t=${Date.now()}`
                         : "https://i.pravatar.cc/100"
                     }
                     alt="admin"
@@ -840,7 +829,12 @@ export default function Admin() {
 
                   <div className="mt-6">
                     <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
-                      <div className="h-full w-[75%] bg-blue-600 rounded-full"></div>
+                      <div
+                        className="h-full bg-blue-600 rounded-full"
+                        style={{
+                          width: `${(auxiliaresActivos / auxiliares.length) * 100}%`,
+                        }}
+                      ></div>
                     </div>
 
                     <p className="text-xs text-gray-400 mt-2">
@@ -975,22 +969,38 @@ export default function Admin() {
                           <td>
                             <button
                               onClick={async () => {
-                                await axios.patch(
-                                  `http://localhost:3000/api/auxiliares/${aux.id_usuario}`,
-                                );
+                                try {
+                                  const nuevoEstado =
+                                    aux.estado === "ACTIVO"
+                                      ? "DESACTIVADO"
+                                      : "ACTIVO";
 
-                                const res = await axios.get(
-                                  "http://localhost:3000/api/auxiliares",
-                                );
-                                setAuxiliares(res.data.data);
+                                  await axios.patch(
+                                    `http://localhost:3000/api/auxiliares/${aux.id_usuario}`,
+                                    {
+                                      estado: nuevoEstado,
+                                    },
+                                  );
+
+                                  const res = await axios.get(
+                                    "http://localhost:3000/api/auxiliares",
+                                  );
+
+                                  setAuxiliares(res.data.data);
+
+                                  toastr.success("Estado actualizado");
+                                } catch (error) {
+                                  console.log(error);
+                                  toastr.error("Error al actualizar");
+                                }
                               }}
-                              className={`px-3 py-1 rounded-full text-xs font-semibold transition  cursor-pointer${
+                              className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
                                 aux.estado === "ACTIVO"
                                   ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                  : "bg-red-100 text-red-600 hover:bg-red-200"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                               }`}
                             >
-                              {aux.estado}
+                              {aux.estado === "ACTIVO" ? "ACTIVO" : "INACTIVO"}
                             </button>
                           </td>
                         </tr>
@@ -1676,26 +1686,5 @@ function MenuItem({ icon, text, badge }: any) {
         </span>
       )}
     </button>
-  );
-}
-
-function Dropdown({ icon, text }: any) {
-  return (
-    <button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer">
-      <div className="flex items-center gap-2">
-        {icon}
-        {text}
-      </div>
-      <ChevronDown size={16} />
-    </button>
-  );
-}
-
-function Card({ title, value }: any) {
-  return (
-    <div className="bg-white p-5 rounded-xl shadow">
-      <h3 className="text-gray-500">{title}</h3>
-      <p className="text-2xl font-bold mt-2">{value}</p>
-    </div>
   );
 }

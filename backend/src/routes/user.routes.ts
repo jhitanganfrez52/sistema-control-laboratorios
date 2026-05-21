@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { crearAuxiliar, obtenerAuxiliares } from "../controllers/user.controller";
+import {
+  crearAuxiliar,
+  obtenerAuxiliares,
+} from "../controllers/user.controller";
 import { crearAdmin } from "../controllers/user.controller";
 import { obtenerAdmin } from "../controllers/user.controller";
 import { User } from "../models/User";
@@ -61,6 +64,35 @@ router.get("/auxiliares/:id", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Error",
+    });
+  }
+});
+router.patch("/auxiliares/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "Usuario no encontrado",
+      });
+    }
+
+    // CAMBIAR ESTADO
+    user.estado = user.estado === "ACTIVO" ? "INACTIVO" : "ACTIVO";
+
+    await user.save();
+
+    res.json({
+      message: "Estado actualizado",
+      estado: user.estado,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Error al actualizar",
     });
   }
 });
